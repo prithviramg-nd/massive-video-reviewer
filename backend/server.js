@@ -87,7 +87,12 @@ async function loadVideoKeys() {
       isTruncated = response.IsTruncated;
       continuationToken = response.NextContinuationToken;
     }
-    cachedVideoKeys = keys;
+    // Sort the keys alphabetically by filename
+    cachedVideoKeys = keys.sort((a, b) => {
+      const nameA = a.split('/').pop().toLowerCase();
+      const nameB = b.split('/').pop().toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
     console.log(`[Init] Found ${keys.length} videos.`);
   } catch (err) {
     console.error(`[Init] Listing error:`, err);
