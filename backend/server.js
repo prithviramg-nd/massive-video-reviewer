@@ -139,7 +139,7 @@ app.get('/api/page', async (req, res) => {
   if (initError) return res.status(500).json({ error: initError });
   
   const page = parseInt(req.query.page) || 0;
-  const size = 8;
+  const size = 6;
   const startIdx = page * size;
   const slice = cachedVideoKeys.slice(startIdx, startIdx + size);
 

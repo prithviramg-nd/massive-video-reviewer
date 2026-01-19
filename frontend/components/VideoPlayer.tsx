@@ -71,7 +71,7 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
         </span>
       </div>
 
-      <div className="relative flex-1 bg-black flex items-center justify-center min-h-0">
+      <div className="relative bg-black flex items-center justify-center min-h-0">
         <video
           ref={videoRef}
           src={video.url}

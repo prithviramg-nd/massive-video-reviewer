@@ -3,7 +3,7 @@ import { Label, VideoItem, AppState } from './types';
 import VideoPlayer from './components/VideoPlayer';
 import Pagination from './components/Pagination';
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 6;
 
 const App: React.FC = () => {
   const [videoKeys, setVideoKeys] = useState<string[]>([]);
@@ -127,7 +127,7 @@ const App: React.FC = () => {
         }
       }
 
-      if (['1', '2', '3', '4', '5', '6', '7', '8'].includes(e.key)) {
+      if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
         setFocusedIndex(parseInt(e.key) - 1);
       }
     };
@@ -198,7 +198,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-4 bg-slate-900 grid grid-cols-4 grid-rows-2 gap-4">
+      <main className="flex-1 p-4 bg-slate-900 grid grid-cols-3 grid-rows-[repeat(2,minmax(0,1fr))] gap-4 overflow-y-auto">
         {pageVideos.map((video, idx) => (
           <VideoPlayer
             key={video.key}
@@ -209,17 +209,17 @@ const App: React.FC = () => {
           />
         ))}
         {pageVideos.length === 0 && (
-          <div className="col-span-4 row-span-2 flex items-center justify-center text-slate-500">
+          <div className="col-span-3 row-span-2 flex items-center justify-center text-slate-500">
             No videos found in this page.
           </div>
         )}
       </main>
 
-      <footer className="px-6 py-2 bg-slate-800 text-xs text-slate-400 flex justify-between items-center border-t border-slate-700 shadow-inner">
+      <footer className="flex-shrink-0 px-6 py-2 bg-slate-800 text-xs text-slate-400 flex justify-between items-center border-t border-slate-700 shadow-inner">
         <div className="flex space-x-4">
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">Space</kbd> Play/Pause</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">←/→</kbd> Frame Step</span>
-          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">1-8</kbd> Select</span>
+          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">1-6</kbd> Select</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">T</kbd> Mark TP</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">F</kbd> Mark FP</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">[ / ]</kbd> Navigation</span>
