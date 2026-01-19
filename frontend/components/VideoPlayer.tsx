@@ -54,16 +54,14 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
   }, [video.url]);
 
   return (
-    <div 
+    <div
       onClick={onFocus}
-      className={`relative group bg-black rounded-lg overflow-hidden transition-all flex flex-col ${
-        isFocused ? 'video-focused' : 'border border-slate-800'
-      }`}
+      className={`relative group bg-black rounded-lg overflow-hidden transition-all flex flex-col ${isFocused ? 'video-focused' : 'border border-slate-800'
+        }`}
     >
       <div className="absolute top-2 left-2 z-10 flex space-x-2">
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-tight shadow-md ${
-          video.label === 'TP' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-        }`}>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-tight shadow-md ${video.label === 'TP' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}>
           {video.label}
         </span>
         <span className="bg-black/60 text-slate-300 px-2 py-0.5 rounded text-[10px] font-mono truncate max-w-[200px] backdrop-blur-sm">
@@ -82,31 +80,44 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
         />
-        
+
         {!isPlaying && (
-           <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
-              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
-                <svg className="w-6 h-6 text-white opacity-80" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.333-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                </svg>
-              </div>
-           </div>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
+            <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <svg className="w-6 h-6 text-white opacity-80" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.333-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+              </svg>
+            </div>
+          </div>
         )}
       </div>
 
       <div className={`p-2 bg-slate-800/90 backdrop-blur-sm flex items-center justify-between border-t border-white/5`}>
         <div className="flex space-x-1">
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); onToggleLabel('TP'); }}
             className={`px-3 py-1 rounded text-xs font-bold transition-colors ${video.label === 'TP' ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
           >
             TP
           </button>
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); onToggleLabel('FP'); }}
             className={`px-3 py-1 rounded text-xs font-bold transition-colors ${video.label === 'FP' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
           >
             FP
+          </button>
+          {/* fullscreen button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              videoRef.current?.requestFullscreen?.();
+            }}
+            className="px-2 py-1 rounded text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors flex items-center"
+            title="Fullscreen"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
           </button>
         </div>
         <div className="text-[10px] text-slate-500 font-mono">
