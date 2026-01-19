@@ -1,0 +1,5 @@
+{
+  "name": "Massive Video Reviewer",
+  "description": "A high-performance, keyboard-driven tool for reviewing and labeling 100,000+ S3 videos with frame-accurate controls and persistent S3-based state.",
+  "requestFramePermissions": []
+}

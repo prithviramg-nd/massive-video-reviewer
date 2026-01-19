@@ -1,0 +1,13 @@
+#!/bin/bash
+# Example environment variable setup script
+# Copy this to setup-env.sh and fill in your actual credentials
+# Then run: source setup-env.sh
+
+export AWS_ACCESS_KEY_ID=your_access_key_here
+export AWS_SECRET_ACCESS_KEY=your_secret_key_here
+export AWS_REGION=us-east-1
+export AWS_S3_BUCKET=netradyne-sharing
+export AWS_S3_PREFIX=analytics/prithvi/detections_annotated_videos/TP/
+export PORT=3000
+
+echo "Environment variables set for backend server"
