@@ -14,7 +14,7 @@ const App: React.FC = () => {
   const [pageVideos, setPageVideos] = useState<VideoItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
-  
+
   const stateRef = useRef({ labels, currentPage, videoKeys });
   useEffect(() => {
     stateRef.current = { labels, currentPage, videoKeys };
@@ -44,16 +44,24 @@ const App: React.FC = () => {
 
   const loadPage = useCallback(async (page: number) => {
     if (videoKeys.length === 0) return;
+    fetch('/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lastPage: page,
+        labels: labels, // Use current labels
+      })
+    });
     try {
       const response = await fetch(`/api/page?page=${page}`);
       if (!response.ok) throw new Error("Failed to load page data");
-      
+
       const data = await response.json();
       const videosWithLabels = (data.videos || []).map((v: any) => ({
         ...v,
         label: labels[v.key] || 'TP'
       }));
-      
+
       setPageVideos(videosWithLabels);
     } catch (error) {
       console.error("Failed to load page:", error);
@@ -87,44 +95,24 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const data = JSON.stringify({
-        lastPage: stateRef.current.currentPage,
-        labels: stateRef.current.labels,
-      });
-      
-      try {
-        // Beacon API is reliable for end-of-session saves
-        if (navigator.sendBeacon) {
-          navigator.sendBeacon('/api/save', data);
-        }
-      } catch (err) {
-        console.warn("Beacon failed", err);
-      }
-
-      // Standard confirmation dialog
-      e.preventDefault();
-      return (e.returnValue = 'You have unsaved changes. Are you sure you want to exit?');
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
-
-  useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'PageDown' || e.key === ']') {
         setCurrentPage(prev => Math.min(prev + 1, Math.ceil(videoKeys.length / PAGE_SIZE) - 1));
       } else if (e.key === 'PageUp' || e.key === '[') {
         setCurrentPage(prev => Math.max(0, prev - 1));
       }
-      
+
       if (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 'f') {
         const video = pageVideos[focusedIndex];
         if (video) {
           const newLabel = e.key.toLowerCase() === 't' ? 'TP' : 'FP';
           toggleLabel(video.key, newLabel);
         }
+      }
+
+      if (e.key.toLowerCase() === 'm') {
+        const event = new CustomEvent('toggle-fullscreen-shortcut');
+        window.dispatchEvent(event);
       }
 
       if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
@@ -137,7 +125,19 @@ const App: React.FC = () => {
   }, [videoKeys.length, pageVideos, focusedIndex]);
 
   const toggleLabel = (key: string, label: Label) => {
-    setLabels(prev => ({ ...prev, [key]: label }));
+    setLabels(prev => {
+      const newLabels = { ...prev, [key]: label };
+      // Trigger an async save with the newest data
+      fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lastPage: currentPage,
+          labels: newLabels,
+        })
+      });
+      return newLabels;
+    });
     setPageVideos(prev => prev.map(v => v.key === key ? { ...v, label } : v));
   };
 
@@ -158,7 +158,7 @@ const App: React.FC = () => {
           <p className="text-sm text-slate-500 mb-6 font-mono">
             Check if the backend server is running at port 3000 and AWS credentials are set.
           </p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors"
           >
@@ -180,18 +180,17 @@ const App: React.FC = () => {
             <span className="font-mono">{videoKeys.length.toLocaleString()}</span> Videos
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-6">
-           <Pagination 
-            current={currentPage} 
-            total={totalPages} 
-            onChange={setCurrentPage} 
+          <Pagination
+            current={currentPage}
+            total={totalPages}
+            onChange={setCurrentPage}
           />
-          <button 
+          <button
             onClick={saveState}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-              isSaving ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'
-            }`}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${isSaving ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'
+              }`}
           >
             {isSaving ? 'Saving...' : 'Manual Save'}
           </button>
@@ -222,12 +221,13 @@ const App: React.FC = () => {
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">1-6</kbd> Select</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">T</kbd> Mark TP</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">F</kbd> Mark FP</span>
+          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">M</kbd> Fullscreen</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">[ / ]</kbd> Navigation</span>
         </div>
         <div className="flex items-center space-x-2">
-           <span className="bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded border border-blue-800/50">
-             Focused Video: {focusedIndex + 1}
-           </span>
+          <span className="bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded border border-blue-800/50">
+            Focused Video: {focusedIndex + 1}
+          </span>
         </div>
       </footer>
     </div>

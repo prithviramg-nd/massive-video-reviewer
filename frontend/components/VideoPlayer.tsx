@@ -45,6 +45,24 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
   }, [isFocused]);
 
   useEffect(() => {
+    if (!isFocused) return;
+
+    const handleFullscreenShortcut = () => {
+      const v = videoRef.current;
+      if (!v) return;
+
+      if (!document.fullscreenElement) {
+        v.requestFullscreen?.().catch(console.error);
+      } else {
+        document.exitFullscreen?.();
+      }
+    };
+
+    window.addEventListener('toggle-fullscreen-shortcut', handleFullscreenShortcut);
+    return () => window.removeEventListener('toggle-fullscreen-shortcut', handleFullscreenShortcut);
+  }, [isFocused]);
+
+  useEffect(() => {
     if (videoRef.current) {
       videoRef.current.load();
       videoRef.current.play().catch(() => {
