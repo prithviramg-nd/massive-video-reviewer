@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   const stateRef = useRef({ labels, currentPage, videoKeys });
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     stateRef.current = { labels, currentPage, videoKeys };
   }, [labels, currentPage, videoKeys]);
@@ -44,14 +45,6 @@ const App: React.FC = () => {
 
   const loadPage = useCallback(async (page: number) => {
     if (videoKeys.length === 0) return;
-    fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lastPage: page,
-        labels: labels, // Use current labels
-      })
-    });
     try {
       const response = await fetch(`/api/page?page=${page}`);
       if (!response.ok) throw new Error("Failed to load page data");
@@ -94,12 +87,49 @@ const App: React.FC = () => {
     }
   };
 
+  const debouncedSave = (page: number, currentLabels: Record<string, Label>) => {
+    // Clear the previous timer if it exists
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+    // Start a new timer for 500ms
+    saveTimeoutRef.current = setTimeout(() => {
+      fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lastPage: page,
+          labels: currentLabels,
+        })
+      });
+      console.log("Debounced save triggered for page:", page);
+    }, 500); // 500 milliseconds of silence required
+  };
+
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'PageDown' || e.key === ']') {
-        setCurrentPage(prev => Math.min(prev + 1, Math.ceil(videoKeys.length / PAGE_SIZE) - 1));
+        const nextPage = Math.min(currentPage + 1, Math.ceil(videoKeys.length / PAGE_SIZE) - 1);
+        setCurrentPage(nextPage);
+        debouncedSave(nextPage, stateRef.current.labels); // Use the new helper
       } else if (e.key === 'PageUp' || e.key === '[') {
-        setCurrentPage(prev => Math.max(0, prev - 1));
+        const prevPage = Math.max(0, currentPage - 1);
+        setCurrentPage(prevPage);
+        debouncedSave(prevPage, stateRef.current.labels); // Use the new helper
+      }
+
+      if (e.key.toLowerCase() === 'c') {
+        const video = pageVideos[focusedIndex];
+        if (video) {
+          // This extracts the filename from the S3 key path
+          const fileName = video.key.split('/').pop() || video.key;
+
+          // Standard web API to copy to clipboard
+          navigator.clipboard.writeText(fileName).then(() => {
+            console.log("Copied to clipboard:", fileName);
+          }).catch(err => {
+            console.error("Failed to copy:", err);
+          });
+        }
       }
 
       if (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 'f') {
@@ -222,6 +252,7 @@ const App: React.FC = () => {
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">T</kbd> Mark TP</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">F</kbd> Mark FP</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">M</kbd> Fullscreen</span>
+          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">C</kbd> Copy Video Name</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">[ / ]</kbd> Navigation</span>
         </div>
         <div className="flex items-center space-x-2">
