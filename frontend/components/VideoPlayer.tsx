@@ -1,21 +1,37 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { VideoItem, Label } from '../types';
+import { VideoItem, LabelStatus } from '../types';
 
 interface Props {
   video: VideoItem;
   isFocused: boolean;
   onFocus: () => void;
-  onToggleLabel: (label: Label) => void;
+  onToggleLabel: (label: LabelStatus) => void;
+  onUpdateTag: (tag: string) => void; // Add this
+  allTags: string[]; // Add this
 }
 
-const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel }) => {
+const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel, onUpdateTag, allTags }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [tagInput, setTagInput] = useState(video.tag || ''); // This line fixes your error
+
+  // Update local input when video prop changes (e.g., page navigation)
+  useEffect(() => {
+    setTagInput(video.tag || '');
+  }, [video.key, video.tag]);
+
+  const handleTagSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      onUpdateTag(tagInput);
+      (e.target as HTMLInputElement).blur(); // Remove focus after saving
+    }
+  };
 
   useEffect(() => {
     if (!isFocused) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
       const v = videoRef.current;
       if (!v) return;
 
@@ -111,7 +127,7 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
       </div>
 
       <div className={`p-2 bg-slate-800/90 backdrop-blur-sm flex items-center justify-between border-t border-white/5`}>
-        <div className="flex space-x-1">
+        <div className="flex flex-1 items-center space-x-1"> {/* Added flex-1 and items-center */}
           <button
             onClick={(e) => { e.stopPropagation(); onToggleLabel('TP'); }}
             className={`px-3 py-1 rounded text-xs font-bold transition-colors ${video.label === 'TP' ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
@@ -124,7 +140,8 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
           >
             FP
           </button>
-          {/* fullscreen button */}
+
+          {/* Fullscreen button is now separate and correctly placed before the input */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -137,8 +154,24 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
             </svg>
           </button>
+
+          {/* Requirement: Tag Input takes entire free space via flex-1 */}
+          <div className="flex-1 px-1"> {/* Wrapper to help with spacing */}
+            <input
+              list="tag-suggestions"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagSubmit}
+              placeholder="Add tag..."
+              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <datalist id="tag-suggestions">
+              {allTags.map(t => <option key={t} value={t} />)}
+            </datalist>
+          </div>
         </div>
-        <div className="text-[10px] text-slate-500 font-mono">
+
+        <div className="text-[10px] text-slate-500 font-mono ml-2">
           {(videoRef.current?.currentTime || 0).toFixed(2)}s / {Number.isFinite(videoRef.current?.duration) ? videoRef.current?.duration.toFixed(2) : '--.--'}s
         </div>
       </div>

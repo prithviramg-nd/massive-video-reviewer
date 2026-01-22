@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Label, VideoItem, AppState } from './types';
+import { VideoLabel, LabelStatus, VideoItem, AppState } from './types';
 import VideoPlayer from './components/VideoPlayer';
 import Pagination from './components/Pagination';
 
@@ -7,7 +7,7 @@ const PAGE_SIZE = 6;
 
 const App: React.FC = () => {
   const [videoKeys, setVideoKeys] = useState<string[]>([]);
-  const [labels, setLabels] = useState<Record<string, Label>>({});
+  const [labels, setLabels] = useState<Record<string, VideoLabel>>({});
   const [currentPage, setCurrentPage] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
@@ -50,10 +50,14 @@ const App: React.FC = () => {
       if (!response.ok) throw new Error("Failed to load page data");
 
       const data = await response.json();
-      const videosWithLabels = (data.videos || []).map((v: any) => ({
-        ...v,
-        label: labels[v.key] || 'TP'
-      }));
+      const videosWithLabels = (data.videos || []).map((v: any) => {
+        const labelData = labels[v.key];
+        return {
+          ...v,
+          label: typeof labelData === 'object' ? labelData.status : (labelData || 'TP'),
+          tag: typeof labelData === 'object' ? labelData.tag : ''
+        };
+      });
 
       setPageVideos(videosWithLabels);
     } catch (error) {
@@ -107,6 +111,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
       if (e.key === 'PageDown' || e.key.toLowerCase() === 's') {
         const nextPage = Math.min(currentPage + 1, Math.ceil(videoKeys.length / PAGE_SIZE) - 1);
         setCurrentPage(nextPage);
@@ -136,7 +141,7 @@ const App: React.FC = () => {
         const video = pageVideos[focusedIndex];
         if (video) {
           const newLabel = e.key.toLowerCase() === 'q' ? 'TP' : 'FP';
-          toggleLabel(video.key, newLabel);
+          updateVideoData(video.key, newLabel, video.tag || '');
         }
       }
 
@@ -154,9 +159,9 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [videoKeys.length, pageVideos, focusedIndex]);
 
-  const toggleLabel = (key: string, label: Label) => {
+  const updateVideoData = (key: string, status: LabelStatus, tag: string) => {
     setLabels(prev => {
-      const newLabels = { ...prev, [key]: label };
+      const newLabels = { ...prev, [key]: { status, tag } };
       // Trigger an async save with the newest data
       fetch('/api/save', {
         method: 'POST',
@@ -168,7 +173,7 @@ const App: React.FC = () => {
       });
       return newLabels;
     });
-    setPageVideos(prev => prev.map(v => v.key === key ? { ...v, label } : v));
+    setPageVideos(prev => prev.map(v => v.key === key ? { ...v, label: status, tag } : v));
   };
 
   if (isLoading) {
@@ -198,7 +203,7 @@ const App: React.FC = () => {
       </div>
     );
   }
-
+  const allUniqueTags = Array.from(new Set(Object.values(labels).map(l => l.tag).filter(Boolean)));
   const totalPages = Math.ceil(videoKeys.length / PAGE_SIZE);
 
   return (
@@ -232,9 +237,11 @@ const App: React.FC = () => {
           <VideoPlayer
             key={video.key}
             video={video}
+            allTags={allUniqueTags}
             isFocused={focusedIndex === idx}
             onFocus={() => setFocusedIndex(idx)}
-            onToggleLabel={(label) => toggleLabel(video.key, label)}
+            onToggleLabel={(status) => updateVideoData(video.key, status, video.tag || '')}
+            onUpdateTag={(tag) => updateVideoData(video.key, video.label as LabelStatus, tag)}
           />
         ))}
         {pageVideos.length === 0 && (

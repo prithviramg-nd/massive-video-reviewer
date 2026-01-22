@@ -1,14 +1,21 @@
-export type Label = 'TP' | 'FP';
+// frontend/types.ts
+export type LabelStatus = 'TP' | 'FP';
+
+export interface VideoLabel {
+  status: LabelStatus;
+  tag: string;
+}
 
 export interface VideoItem {
   key: string;
   url: string;
-  label: Label;
+  label: LabelStatus;
+  tag: string;
 }
 
 export interface AppState {
   lastPage: number;
-  labels: Record<string, Label>;
+  labels: Record<string, VideoLabel>; // Updated to the new object structure
   videoKeys: string[];
 }
 
