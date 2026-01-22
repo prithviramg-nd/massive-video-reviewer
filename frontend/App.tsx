@@ -107,17 +107,17 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'PageDown' || e.key === ']') {
+      if (e.key === 'PageDown' || e.key.toLowerCase() === 's') {
         const nextPage = Math.min(currentPage + 1, Math.ceil(videoKeys.length / PAGE_SIZE) - 1);
         setCurrentPage(nextPage);
         debouncedSave(nextPage, stateRef.current.labels); // Use the new helper
-      } else if (e.key === 'PageUp' || e.key === '[') {
+      } else if (e.key === 'PageUp' || e.key.toLowerCase() === 'a') {
         const prevPage = Math.max(0, currentPage - 1);
         setCurrentPage(prevPage);
         debouncedSave(prevPage, stateRef.current.labels); // Use the new helper
       }
 
-      if (e.key.toLowerCase() === 'c') {
+      if (e.key.toLowerCase() === 'x') {
         const video = pageVideos[focusedIndex];
         if (video) {
           // This extracts the filename from the S3 key path
@@ -132,15 +132,15 @@ const App: React.FC = () => {
         }
       }
 
-      if (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 'f') {
+      if (e.key.toLowerCase() === 'q' || e.key.toLowerCase() === 'w') {
         const video = pageVideos[focusedIndex];
         if (video) {
-          const newLabel = e.key.toLowerCase() === 't' ? 'TP' : 'FP';
+          const newLabel = e.key.toLowerCase() === 'q' ? 'TP' : 'FP';
           toggleLabel(video.key, newLabel);
         }
       }
 
-      if (e.key.toLowerCase() === 'm') {
+      if (e.key.toLowerCase() === 'z') {
         const event = new CustomEvent('toggle-fullscreen-shortcut');
         window.dispatchEvent(event);
       }
@@ -249,11 +249,11 @@ const App: React.FC = () => {
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">Space</kbd> Play/Pause</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">←/→</kbd> Frame Step</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">1-6</kbd> Select</span>
-          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">T</kbd> Mark TP</span>
-          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">F</kbd> Mark FP</span>
-          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">M</kbd> Fullscreen</span>
-          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">C</kbd> Copy Video Name</span>
-          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">[ / ]</kbd> Navigation</span>
+          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">Q</kbd> Mark TP</span>
+          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">W</kbd> Mark FP</span>
+          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">Z</kbd> Fullscreen</span>
+          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">X</kbd> Copy Video Name</span>
+          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">A / S</kbd> Navigation</span>
         </div>
         <div className="flex items-center space-x-2">
           <span className="bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded border border-blue-800/50">
