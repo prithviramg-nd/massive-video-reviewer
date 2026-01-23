@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [pageVideos, setPageVideos] = useState<VideoItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const stateRef = useRef({ labels, currentPage, videoKeys });
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -159,6 +160,28 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [videoKeys.length, pageVideos, focusedIndex]);
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    // Find the index of the video that matches the query
+    // We search by filename (the part after the last slash)
+    const videoIndex = videoKeys.findIndex(key =>
+      key.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    if (videoIndex !== -1) {
+      const targetPage = Math.floor(videoIndex / PAGE_SIZE);
+      setCurrentPage(targetPage);
+
+      // Optional: Focus the specific video in that page
+      setFocusedIndex(videoIndex % PAGE_SIZE);
+      setSearchQuery(''); // Clear search after finding
+    } else {
+      alert("Video not found");
+    }
+  };
+
   const updateVideoData = (key: string, status: LabelStatus, tag: string) => {
     setLabels(prev => {
       const newLabels = { ...prev, [key]: { status, tag } };
@@ -211,6 +234,21 @@ const App: React.FC = () => {
       <header className="flex items-center justify-between px-6 py-3 bg-slate-800 border-b border-slate-700">
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-bold text-white mr-8">Large Scale Review</h1>
+          {/* New Search Bar */}
+          <form onSubmit={handleSearch} className="relative">
+            <input
+              type="text"
+              placeholder="Search video name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-md px-4 py-1.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 transition-all"
+            />
+            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+          </form>
           <div className="text-slate-400 text-sm">
             <span className="font-mono">{videoKeys.length.toLocaleString()}</span> Videos
           </div>
