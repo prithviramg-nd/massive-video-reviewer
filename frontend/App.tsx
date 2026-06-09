@@ -3,7 +3,23 @@ import { VideoLabel, LabelStatus, VideoItem, AppState } from './types';
 import VideoPlayer from './components/VideoPlayer';
 import Pagination from './components/Pagination';
 
-const PAGE_SIZE = 6;
+type GridLayout = '1x2' | '2x2' | '2x3';
+
+const GRID_OPTIONS: { value: GridLayout; label: string; rows: number; cols: number }[] = [
+  { value: '1x2', label: '1x2 (2 videos)', rows: 1, cols: 2 },
+  { value: '2x2', label: '2x2 (4 videos)', rows: 2, cols: 2 },
+  { value: '2x3', label: '2x3 (6 videos)', rows: 2, cols: 3 },
+];
+
+const getGridConfig = (layout: GridLayout) => {
+  const option = GRID_OPTIONS.find(o => o.value === layout)!;
+  return { rows: option.rows, cols: option.cols, pageSize: option.rows * option.cols };
+};
+
+// lastPage in review_db.json is always stored as a 1x2 page number (pageSize=2).
+// This keeps it layout-independent so switching grids across sessions works correctly.
+const toNormalizedPage = (page: number, pageSize: number) => Math.floor(page * pageSize / 2);
+const fromNormalizedPage = (normalizedPage: number, pageSize: number) => Math.floor(normalizedPage * 2 / pageSize);
 
 const App: React.FC = () => {
   const [videoKeys, setVideoKeys] = useState<string[]>([]);
@@ -15,6 +31,9 @@ const App: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [gridLayout, setGridLayout] = useState<GridLayout>('2x3');
+
+  const { rows: gridRows, cols: gridCols, pageSize: PAGE_SIZE } = getGridConfig(gridLayout);
 
   const stateRef = useRef({ labels, currentPage, videoKeys });
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -31,7 +50,8 @@ const App: React.FC = () => {
       const data: AppState = await response.json();
       setVideoKeys(data.videoKeys || []);
       setLabels(data.labels || {});
-      setCurrentPage(data.lastPage || 0);
+      // lastPage is stored as 1x2-normalized; convert to current layout's page
+      setCurrentPage(fromNormalizedPage(data.lastPage || 0, PAGE_SIZE));
       setIsLoading(false);
     } catch (error: any) {
       console.error("Failed to initialize app:", error);
@@ -47,7 +67,7 @@ const App: React.FC = () => {
   const loadPage = useCallback(async (page: number) => {
     if (videoKeys.length === 0) return;
     try {
-      const response = await fetch(`/api/page?page=${page}`);
+      const response = await fetch(`/api/page?page=${page}&size=${PAGE_SIZE}`);
       if (!response.ok) throw new Error("Failed to load page data");
 
       const data = await response.json();
@@ -64,7 +84,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Failed to load page:", error);
     }
-  }, [videoKeys, labels]);
+  }, [videoKeys, labels, PAGE_SIZE]);
 
   useEffect(() => {
     if (!isLoading && !errorStatus) {
@@ -79,7 +99,7 @@ const App: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lastPage: stateRef.current.currentPage,
+          lastPage: toNormalizedPage(stateRef.current.currentPage, PAGE_SIZE),
           labels: stateRef.current.labels,
         })
       });
@@ -102,7 +122,7 @@ const App: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lastPage: page,
+          lastPage: toNormalizedPage(page, PAGE_SIZE),
           labels: currentLabels,
         })
       });
@@ -152,13 +172,14 @@ const App: React.FC = () => {
       }
 
       if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
-        setFocusedIndex(parseInt(e.key) - 1);
+        const idx = parseInt(e.key) - 1;
+        if (idx < PAGE_SIZE) setFocusedIndex(idx);
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [videoKeys.length, pageVideos, focusedIndex]);
+  }, [videoKeys.length, pageVideos, focusedIndex, PAGE_SIZE, currentPage]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,6 +203,17 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGridLayoutChange = (newLayout: GridLayout) => {
+    const oldPageSize = PAGE_SIZE;
+    const newConfig = getGridConfig(newLayout);
+    // Calculate which video is first on the current page, and map it to the new page
+    const firstVideoIndex = currentPage * oldPageSize;
+    const newPage = Math.floor(firstVideoIndex / newConfig.pageSize);
+    setGridLayout(newLayout);
+    setCurrentPage(newPage);
+    setFocusedIndex(0);
+  };
+
   const updateVideoData = (key: string, status: LabelStatus, tag: string) => {
     setLabels(prev => {
       const newLabels = { ...prev, [key]: { status, tag } };
@@ -190,7 +222,7 @@ const App: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lastPage: currentPage,
+          lastPage: toNormalizedPage(currentPage, PAGE_SIZE),
           labels: newLabels,
         })
       });
@@ -252,6 +284,19 @@ const App: React.FC = () => {
           <div className="text-slate-400 text-sm">
             <span className="font-mono">{videoKeys.length.toLocaleString()}</span> Videos
           </div>
+          <div className="flex items-center space-x-2">
+            <label htmlFor="grid-layout" className="text-slate-400 text-sm">Grid:</label>
+            <select
+              id="grid-layout"
+              value={gridLayout}
+              onChange={(e) => handleGridLayoutChange(e.target.value as GridLayout)}
+              className="bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              {GRID_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex items-center space-x-6">
@@ -270,7 +315,13 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-4 bg-slate-900 grid grid-cols-3 grid-rows-[repeat(2,minmax(0,1fr))] gap-4 overflow-y-auto">
+      <main
+        className="flex-1 p-4 bg-slate-900 grid gap-4 overflow-y-auto"
+        style={{
+          gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
+        }}
+      >
         {pageVideos.map((video, idx) => (
           <VideoPlayer
             key={video.key}
@@ -283,7 +334,10 @@ const App: React.FC = () => {
           />
         ))}
         {pageVideos.length === 0 && (
-          <div className="col-span-3 row-span-2 flex items-center justify-center text-slate-500">
+          <div
+            className="flex items-center justify-center text-slate-500"
+            style={{ gridColumn: `span ${gridCols}`, gridRow: `span ${gridRows}` }}
+          >
             No videos found in this page.
           </div>
         )}
@@ -293,7 +347,7 @@ const App: React.FC = () => {
         <div className="flex space-x-4">
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">Space</kbd> Play/Pause</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">←/→</kbd> Frame Step</span>
-          <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">1-6</kbd> Select</span>
+           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">1-{PAGE_SIZE}</kbd> Select</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">Q</kbd> Mark TP</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">W</kbd> Mark FP</span>
           <span><kbd className="bg-slate-700 px-1 rounded text-white font-mono shadow-sm">Z</kbd> Fullscreen</span>
