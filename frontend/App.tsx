@@ -73,10 +73,15 @@ const App: React.FC = () => {
       const data = await response.json();
       const videosWithLabels = (data.videos || []).map((v: any) => {
         const labelData = labels[v.key];
+        // Backward compat: old data may have `tag: string` instead of `tags: string[]`
+        const rawTags = typeof labelData === 'object'
+          ? (labelData.tags ?? (labelData as any).tag)
+          : undefined;
+        const tags = Array.isArray(rawTags) ? rawTags : (rawTags ? [rawTags] : []);
         return {
           ...v,
           label: typeof labelData === 'object' ? labelData.status : (labelData || 'TP'),
-          tag: typeof labelData === 'object' ? labelData.tag : ''
+          tags,
         };
       });
 
@@ -162,7 +167,7 @@ const App: React.FC = () => {
         const video = pageVideos[focusedIndex];
         if (video) {
           const newLabel = e.key.toLowerCase() === 'q' ? 'TP' : 'FP';
-          updateVideoData(video.key, newLabel, video.tag || '');
+          updateVideoData(video.key, newLabel, video.tags || []);
         }
       }
 
@@ -173,7 +178,10 @@ const App: React.FC = () => {
 
       if (['1', '2', '3', '4', '5', '6'].includes(e.key)) {
         const idx = parseInt(e.key) - 1;
-        if (idx < PAGE_SIZE) setFocusedIndex(idx);
+        if (idx < PAGE_SIZE) {
+          e.preventDefault(); // prevent digit from being typed into the auto-focused tag input
+          setFocusedIndex(idx);
+        }
       }
     };
 
@@ -214,9 +222,9 @@ const App: React.FC = () => {
     setFocusedIndex(0);
   };
 
-  const updateVideoData = (key: string, status: LabelStatus, tag: string) => {
+  const updateVideoData = (key: string, status: LabelStatus, tags: string[]) => {
     setLabels(prev => {
-      const newLabels = { ...prev, [key]: { status, tag } };
+      const newLabels = { ...prev, [key]: { status, tags } };
       // Trigger an async save with the newest data
       fetch('/api/save', {
         method: 'POST',
@@ -228,7 +236,7 @@ const App: React.FC = () => {
       });
       return newLabels;
     });
-    setPageVideos(prev => prev.map(v => v.key === key ? { ...v, label: status, tag } : v));
+    setPageVideos(prev => prev.map(v => v.key === key ? { ...v, label: status, tags } : v));
   };
 
   if (isLoading) {
@@ -258,7 +266,13 @@ const App: React.FC = () => {
       </div>
     );
   }
-  const allUniqueTags = Array.from(new Set(Object.values(labels).map(l => l.tag).filter(Boolean)));
+  const allUniqueTags = Array.from(new Set(
+    Object.values(labels).flatMap(l => {
+      // Backward compat: handle old `tag: string` alongside new `tags: string[]`
+      const t = (l as any).tags ?? (l as any).tag;
+      return Array.isArray(t) ? t : (t ? [t] : []);
+    }).filter(Boolean)
+  ));
   const totalPages = Math.ceil(videoKeys.length / PAGE_SIZE);
 
   return (
@@ -329,8 +343,8 @@ const App: React.FC = () => {
             allTags={allUniqueTags}
             isFocused={focusedIndex === idx}
             onFocus={() => setFocusedIndex(idx)}
-            onToggleLabel={(status) => updateVideoData(video.key, status, video.tag || '')}
-            onUpdateTag={(tag) => updateVideoData(video.key, video.label as LabelStatus, tag)}
+            onToggleLabel={(status) => updateVideoData(video.key, status, video.tags || [])}
+            onUpdateTags={(tags) => updateVideoData(video.key, video.label as LabelStatus, tags)}
           />
         ))}
         {pageVideos.length === 0 && (

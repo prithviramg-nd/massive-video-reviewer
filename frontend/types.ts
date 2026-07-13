@@ -3,14 +3,14 @@ export type LabelStatus = 'TP' | 'FP';
 
 export interface VideoLabel {
   status: LabelStatus;
-  tag: string;
+  tags: string[];
 }
 
 export interface VideoItem {
   key: string;
   url: string;
   label: LabelStatus;
-  tag: string;
+  tags: string[];
 }
 
 export interface AppState {

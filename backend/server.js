@@ -48,7 +48,8 @@ function createS3Client(region) {
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
     s3Config.credentials = {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      ...(process.env.AWS_SESSION_TOKEN && { sessionToken: process.env.AWS_SESSION_TOKEN })
     };
   }
 
@@ -260,9 +261,23 @@ async function startServer() {
         await loadDB();
       } catch (regionError) {
         // If we get a region/endpoint error, try to detect the correct region
-        if (regionError.message && regionError.message.includes('endpoint')) {
+        if (regionError.message && regionError.message.includes('endpoint') || regionError.Code === 'PermanentRedirect') {
           console.log(`[Init] Region mismatch detected. Attempting to detect bucket region...`);
-          const bucketRegion = await getBucketRegion(BUCKET_NAME, s3);
+          
+          // Try to extract region from the error's Endpoint field (e.g., bucket.s3-us-west-1.amazonaws.com)
+          let bucketRegion = null;
+          if (regionError.Endpoint) {
+            const endpointMatch = regionError.Endpoint.match(/s3[.-]([a-z0-9-]+)\.amazonaws/);
+            if (endpointMatch) {
+              bucketRegion = endpointMatch[1];
+              console.log(`[Init] Extracted region from redirect endpoint: ${bucketRegion}`);
+            }
+          }
+          
+          // Fallback to GetBucketLocation API
+          if (!bucketRegion) {
+            bucketRegion = await getBucketRegion(BUCKET_NAME, s3);
+          }
           
           if (bucketRegion) {
             console.log(`[Init] Detected bucket region: ${bucketRegion}. Recreating S3 client...`);

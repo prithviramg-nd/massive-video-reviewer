@@ -6,24 +6,49 @@ interface Props {
   isFocused: boolean;
   onFocus: () => void;
   onToggleLabel: (label: LabelStatus) => void;
-  onUpdateTag: (tag: string) => void; // Add this
-  allTags: string[]; // Add this
+  onUpdateTags: (tags: string[]) => void;
+  allTags: string[];
 }
 
-const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel, onUpdateTag, allTags }) => {
+const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel, onUpdateTags, allTags }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [tagInput, setTagInput] = useState(video.tag || ''); // This line fixes your error
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [tagInput, setTagInput] = useState('');
 
-  // Update local input when video prop changes (e.g., page navigation)
-  useEffect(() => {
-    setTagInput(video.tag || '');
-  }, [video.key, video.tag]);
+  // Suggestions: all known tags minus the ones already on this video
+  const suggestions = allTags.filter(t => !(video.tags || []).includes(t));
 
-  const handleTagSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      onUpdateTag(tagInput);
-      (e.target as HTMLInputElement).blur(); // Remove focus after saving
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    const current = video.tags || [];
+    if (current.includes(trimmed)) return; // no duplicates
+    onUpdateTags([...current, trimmed]);
+    setTagInput('');
+  };
+
+  const removeTag = (tag: string) => {
+    onUpdateTags((video.tags || []).filter(t => t !== tag));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      // Release focus so global shortcuts (A/S/W/X, Space, arrows) work again
+      e.preventDefault();
+      tagInputRef.current?.blur();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      addTag(tagInput);
+    } else if (e.key === 'Backspace' && tagInput === '') {
+      // Remove last tag when backspacing on empty input
+      const current = video.tags || [];
+      if (current.length > 0) {
+        onUpdateTags(current.slice(0, -1));
+      }
     }
   };
 
@@ -78,6 +103,18 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
     return () => window.removeEventListener('toggle-fullscreen-shortcut', handleFullscreenShortcut);
   }, [isFocused]);
 
+  // Auto-focus the tag input only when isFocused transitions false→true
+  // (i.e. user explicitly pressed a number key to select this video).
+  // We must NOT focus on mount — that would steal focus on every page change.
+  const prevFocusedRef = useRef(isFocused);
+  useEffect(() => {
+    const wasFocused = prevFocusedRef.current;
+    prevFocusedRef.current = isFocused;
+    if (isFocused && !wasFocused) {
+      tagInputRef.current?.focus();
+    }
+  }, [isFocused]);
+
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.load();
@@ -90,7 +127,7 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
   return (
     <div
       onClick={onFocus}
-      className={`relative group bg-black rounded-lg overflow-hidden transition-all flex flex-col ${isFocused ? 'video-focused' : 'border border-slate-800'
+      className={`relative group bg-black rounded-lg overflow-hidden transition-colors flex flex-col ${isFocused ? 'video-focused' : 'border border-slate-800'
         }`}
     >
       <div className="absolute top-2 left-2 z-10 flex space-x-2">
@@ -103,16 +140,27 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
         </span>
       </div>
 
-      <div className="relative bg-black flex items-center justify-center min-h-0">
+      <div className="relative bg-black flex flex-1 items-center justify-center min-h-0 overflow-hidden">
         <video
           ref={videoRef}
           src={video.url}
-          className="w-full h-full object-contain pointer-events-none"
+          className="w-full h-full max-h-full object-contain pointer-events-none"
+          style={{ imageRendering: 'auto' }}
           muted
           loop
           playsInline
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
+          onTimeUpdate={() => {
+            if (!isSeeking && videoRef.current) {
+              setCurrentTime(videoRef.current.currentTime);
+            }
+          }}
+          onLoadedMetadata={() => {
+            if (videoRef.current && Number.isFinite(videoRef.current.duration)) {
+              setDuration(videoRef.current.duration);
+            }
+          }}
         />
 
         {!isPlaying && (
@@ -124,6 +172,50 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
             </div>
           </div>
         )}
+      </div>
+
+      {/* Seek bar */}
+      <div className="relative w-full h-5 bg-slate-900 group/seek cursor-pointer flex items-center px-1"
+        onClick={(e) => {
+          e.stopPropagation();
+          const v = videoRef.current;
+          if (!v || !duration) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          v.currentTime = pct * duration;
+          setCurrentTime(v.currentTime);
+        }}
+      >
+        {/* Track background */}
+        <div className="absolute left-1 right-1 h-1 bg-slate-700 rounded-full group-hover/seek:h-1.5 transition-all" />
+        {/* Progress fill */}
+        <div
+          className="absolute left-1 h-1 bg-blue-500 rounded-full group-hover/seek:h-1.5 transition-all"
+          style={{ width: duration ? `calc(${(currentTime / duration) * 100}% - 4px)` : '0%' }}
+        />
+        {/* Seek handle */}
+        <div
+          className="absolute w-2.5 h-2.5 bg-blue-400 rounded-full opacity-0 group-hover/seek:opacity-100 transition-opacity shadow-md"
+          style={{ left: duration ? `calc(${(currentTime / duration) * 100}% - 1px)` : '4px' }}
+        />
+        {/* Hidden range input for drag seeking */}
+        <input
+          type="range"
+          min={0}
+          max={duration || 1}
+          step={0.01}
+          value={currentTime}
+          onChange={(e) => {
+            const time = parseFloat(e.target.value);
+            setCurrentTime(time);
+            if (videoRef.current) {
+              videoRef.current.currentTime = time;
+            }
+          }}
+          onMouseDown={() => setIsSeeking(true)}
+          onMouseUp={() => setIsSeeking(false)}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
       </div>
 
       <div className={`p-2 bg-slate-800/90 backdrop-blur-sm flex items-center justify-between border-t border-white/5`}>
@@ -155,24 +247,42 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
             </svg>
           </button>
 
-          {/* Requirement: Tag Input takes entire free space via flex-1 */}
-          <div className="flex-1 px-1"> {/* Wrapper to help with spacing */}
-            <input
-              list="tag-suggestions"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={handleTagSubmit}
-              placeholder="Add tag..."
-              className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <datalist id="tag-suggestions">
-              {allTags.map(t => <option key={t} value={t} />)}
-            </datalist>
+          {/* Multi-tag input with chips */}
+          <div className="flex-1 px-1">
+            <div className="flex flex-wrap items-center gap-1 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 min-h-[26px] focus-within:ring-1 focus-within:ring-blue-500">
+              {(video.tags || []).map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-0.5 bg-blue-600/80 text-white text-[10px] font-medium px-1.5 py-0.5 rounded"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                    className="hover:text-red-300 text-white/70 ml-0.5 font-bold text-[10px] leading-none"
+                  >
+                    x
+                  </button>
+                </span>
+              ))}
+              <input
+                ref={tagInputRef}
+                list={`tag-suggestions-${video.key}`}
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                placeholder={video.tags?.length ? '' : 'Add tag...'}
+                className="flex-1 min-w-[60px] bg-transparent text-xs text-white focus:outline-none py-0.5"
+              />
+              <datalist id={`tag-suggestions-${video.key}`}>
+                {suggestions.map(t => <option key={t} value={t} />)}
+              </datalist>
+            </div>
           </div>
         </div>
 
         <div className="text-[10px] text-slate-500 font-mono ml-2">
-          {(videoRef.current?.currentTime || 0).toFixed(2)}s / {Number.isFinite(videoRef.current?.duration) ? videoRef.current?.duration.toFixed(2) : '--.--'}s
+          {currentTime.toFixed(2)}s / {duration > 0 ? duration.toFixed(2) : '--.--'}s
         </div>
       </div>
     </div>
