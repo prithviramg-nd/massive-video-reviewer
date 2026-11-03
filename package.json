@@ -1,14 +1,17 @@
 {
-  "name": "massive-video-reviewer-frontend",
-  "version": "1.0.0",
-  "description": "Frontend application for large-scale S3 video review",
+  "name": "massive-video-reviewer",
+  "version": "2.0.0",
+  "description": "Browser-only, keyboard-driven reviewer for large S3 video folders (hosted on GitHub Pages)",
   "type": "module",
+  "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

@@ -1,0 +1,19 @@
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": [
+        "https://prithviramg-nd.github.io",
+        "http://localhost:5173",
+        "http://localhost:4173"
+      ],
+      "AllowedMethods": ["GET", "PUT", "HEAD"],
+      "AllowedHeaders": ["*"],
+      "ExposeHeaders": ["ETag", "x-amz-bucket-region", "x-amz-request-id"],
+      "MaxAgeSeconds": 3000
+    },
+    {
+      "AllowedOrigins": ["*"],
+      "AllowedMethods": ["GET"]
+    }
+  ]
+}

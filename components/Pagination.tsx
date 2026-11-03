@@ -25,9 +25,9 @@ const Pagination: React.FC<Props> = ({ current, total, onChange }) => {
           value={current + 1}
           min={1}
           max={total}
-          onChange={(e) => {
-            const val = parseInt(e.target.value) - 1;
-            if (!isNaN(val) && val >= 0 && val < total) onChange(val);
+          onChange={(event) => {
+            const pageIndex = parseInt(event.target.value, 10) - 1;
+            if (!isNaN(pageIndex) && pageIndex >= 0 && pageIndex < total) onChange(pageIndex);
           }}
           className="w-16 bg-slate-900 border border-slate-700 rounded text-center py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 text-blue-400"
         />

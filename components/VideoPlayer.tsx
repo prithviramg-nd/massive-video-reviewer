@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { VideoItem, LabelStatus } from '../types';
+import { isTypingTarget } from '../lib/dom';
 
 interface Props {
   video: VideoItem;
@@ -20,7 +21,7 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
   const [tagInput, setTagInput] = useState('');
 
   // Suggestions: all known tags minus the ones already on this video
-  const suggestions = allTags.filter(t => !(video.tags || []).includes(t));
+  const suggestions = allTags.filter((knownTag) => !(video.tags || []).includes(knownTag));
 
   const addTag = (tag: string) => {
     const trimmed = tag.trim();
@@ -32,18 +33,18 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
   };
 
   const removeTag = (tag: string) => {
-    onUpdateTags((video.tags || []).filter(t => t !== tag));
+    onUpdateTags((video.tags || []).filter((existingTag) => existingTag !== tag));
   };
 
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
+  const handleTagKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
       // Release focus so global shortcuts (A/S/W/X, Space, arrows) work again
-      e.preventDefault();
+      event.preventDefault();
       tagInputRef.current?.blur();
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
       addTag(tagInput);
-    } else if (e.key === 'Backspace' && tagInput === '') {
+    } else if (event.key === 'Backspace' && tagInput === '') {
       // Remove last tag when backspacing on empty input
       const current = video.tags || [];
       if (current.length > 0) {
@@ -55,28 +56,28 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
   useEffect(() => {
     if (!isFocused) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
-      const v = videoRef.current;
-      if (!v) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) return;
+      const videoElement = videoRef.current;
+      if (!videoElement) return;
 
-      switch (e.key) {
+      switch (event.key) {
         case ' ':
-          e.preventDefault();
-          if (v.paused) v.play().catch(console.error);
-          else v.pause();
+          event.preventDefault();
+          if (videoElement.paused) videoElement.play().catch(console.error);
+          else videoElement.pause();
           break;
         case 'ArrowRight':
-          e.preventDefault();
-          v.pause();
-          if (Number.isFinite(v.duration)) {
-            v.currentTime = Math.min(v.duration, v.currentTime + 0.1);
+          event.preventDefault();
+          videoElement.pause();
+          if (Number.isFinite(videoElement.duration)) {
+            videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 0.1);
           }
           break;
         case 'ArrowLeft':
-          e.preventDefault();
-          v.pause();
-          v.currentTime = Math.max(0, v.currentTime - 0.1);
+          event.preventDefault();
+          videoElement.pause();
+          videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.1);
           break;
       }
     };
@@ -89,11 +90,11 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
     if (!isFocused) return;
 
     const handleFullscreenShortcut = () => {
-      const v = videoRef.current;
-      if (!v) return;
+      const videoElement = videoRef.current;
+      if (!videoElement) return;
 
       if (!document.fullscreenElement) {
-        v.requestFullscreen?.().catch(console.error);
+        videoElement.requestFullscreen?.().catch(console.error);
       } else {
         document.exitFullscreen?.();
       }
@@ -176,14 +177,14 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
 
       {/* Seek bar */}
       <div className="relative w-full h-5 bg-slate-900 group/seek cursor-pointer flex items-center px-1"
-        onClick={(e) => {
-          e.stopPropagation();
-          const v = videoRef.current;
-          if (!v || !duration) return;
-          const rect = e.currentTarget.getBoundingClientRect();
-          const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-          v.currentTime = pct * duration;
-          setCurrentTime(v.currentTime);
+        onClick={(event) => {
+          event.stopPropagation();
+          const videoElement = videoRef.current;
+          if (!videoElement || !duration) return;
+          const seekBarRect = event.currentTarget.getBoundingClientRect();
+          const seekFraction = Math.max(0, Math.min(1, (event.clientX - seekBarRect.left) / seekBarRect.width));
+          videoElement.currentTime = seekFraction * duration;
+          setCurrentTime(videoElement.currentTime);
         }}
       >
         {/* Track background */}
@@ -205,8 +206,8 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
           max={duration || 1}
           step={0.01}
           value={currentTime}
-          onChange={(e) => {
-            const time = parseFloat(e.target.value);
+          onChange={(event) => {
+            const time = parseFloat(event.target.value);
             setCurrentTime(time);
             if (videoRef.current) {
               videoRef.current.currentTime = time;
@@ -221,13 +222,13 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
       <div className={`p-2 bg-slate-800/90 backdrop-blur-sm flex items-center justify-between border-t border-white/5`}>
         <div className="flex flex-1 items-center space-x-1"> {/* Added flex-1 and items-center */}
           <button
-            onClick={(e) => { e.stopPropagation(); onToggleLabel('TP'); }}
+            onClick={(event) => { event.stopPropagation(); onToggleLabel('TP'); }}
             className={`px-3 py-1 rounded text-xs font-bold transition-colors ${video.label === 'TP' ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
           >
             TP
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); onToggleLabel('FP'); }}
+            onClick={(event) => { event.stopPropagation(); onToggleLabel('FP'); }}
             className={`px-3 py-1 rounded text-xs font-bold transition-colors ${video.label === 'FP' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
           >
             FP
@@ -235,8 +236,8 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
 
           {/* Fullscreen button is now separate and correctly placed before the input */}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={(event) => {
+              event.stopPropagation();
               videoRef.current?.requestFullscreen?.();
             }}
             className="px-2 py-1 rounded text-xs font-bold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors flex items-center"
@@ -258,7 +259,7 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
                   {tag}
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                    onClick={(event) => { event.stopPropagation(); removeTag(tag); }}
                     className="hover:text-red-300 text-white/70 ml-0.5 font-bold text-[10px] leading-none"
                   >
                     x
@@ -269,13 +270,13 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
                 ref={tagInputRef}
                 list={`tag-suggestions-${video.key}`}
                 value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
+                onChange={(event) => setTagInput(event.target.value)}
                 onKeyDown={handleTagKeyDown}
                 placeholder={video.tags?.length ? '' : 'Add tag...'}
                 className="flex-1 min-w-[60px] bg-transparent text-xs text-white focus:outline-none py-0.5"
               />
               <datalist id={`tag-suggestions-${video.key}`}>
-                {suggestions.map(t => <option key={t} value={t} />)}
+                {suggestions.map((suggestedTag) => <option key={suggestedTag} value={suggestedTag} />)}
               </datalist>
             </div>
           </div>
