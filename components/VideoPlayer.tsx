@@ -286,6 +286,32 @@ const VideoPlayer: React.FC<Props> = ({ video, isFocused, onFocus, onToggleLabel
           {currentTime.toFixed(2)}s / {duration > 0 ? duration.toFixed(2) : '--.--'}s
         </div>
       </div>
+
+      {/* Tag buttons: every tag used in this folder (alphabetical). Click toggles it on this video. */}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-2 pb-2 bg-slate-800/90 flex-shrink-0">
+          {allTags.map((tag) => {
+            const isApplied = (video.tags || []).includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                // Never take keyboard focus, so Space (play/pause) cannot re-press the button.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (isApplied) removeTag(tag);
+                  else onUpdateTags([...(video.tags || []), tag]);
+                }}
+                title={isApplied ? `Remove "${tag}" from this video` : `Add "${tag}" to this video`}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${isApplied ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

@@ -468,9 +468,10 @@ const App: React.FC<Props> = ({ location, initialRegion, credentials, onCredenti
     }).catch((error) => console.error('Failed to copy:', error));
   };
 
+  // Every tag used in this folder, alphabetical (case-insensitive, "tag2" before "tag10").
   const allUniqueTags = useMemo(() => Array.from(new Set(
     Object.values(labels).flatMap((storedLabel) => normalizeLabel(storedLabel).tags),
-  )), [labels]);
+  )).sort((firstTag, secondTag) => firstTag.localeCompare(secondTag, undefined, { sensitivity: 'base', numeric: true })), [labels]);
 
   const credentialsModal = credentialsPrompt && (
     <CredentialsModal reason={credentialsPrompt} onSave={onCredentialsChange} onClose={dismissCredentialsPrompt} />
